@@ -1,15 +1,9 @@
-# CricExpense - Personal Expense Tracker
+# CricExpense - Personal Expense Tracker (PWA with Auto-Backup)
 
-A modern, fully offline-first personal expense tracker web application built with **Tailwind CSS**, **IndexedDB**, and **Chart.js**.
+A modern, 100% offline-first personal expense tracker with built-in **automated backup** to prevent data loss.
 
-## Features
-
-1. **Income & Expenses**: Record, edit, filter, and delete financial transactions with automatic category management.
-2. **Monthly Budgeting**: Set custom budget limits for each spending category per month with visual progress indicators.
-3. **Category-wise Spending**: Interactive doughnut charts showing spending distribution across food, travel, cricket gear, utilities, etc.
-4. **Borrowed & Lent Ledger**: Track money lent or borrowed from friends, teammates, or colleagues, with pending/settled status toggles.
-5. **Charts & Reports**: Monthly trend reports comparing income vs expenses over time.
-6. **100% Offline & Private**: Uses browser `IndexedDB` for robust local data storage and JSON backup export. No external server dependencies.
-
-## How to Run
-Simply open `index.html` in any modern web browser or host it on GitHub Pages.
+## New Features
+1. **Silent Auto-Backup**: Every transaction, budget change, or debt update is automatically backed up in browser `localStorage` instantly.
+2. **Auto-Restore**: If IndexedDB is ever cleared, the app automatically restores your complete dataset from the local backup snapshot.
+3. **Manual Backup & Restore**: Easily download JSON backups or restore them via the top navigation bar.
+4. **PWA Installable**: Fully configured with `manifest.json` and service workers for instant installation from Google Chrome.

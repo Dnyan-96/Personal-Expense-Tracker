@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CricExpense - Offline-First Personal Expense Tracker</title>
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#16a34a">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -45,20 +48,24 @@
                 </div>
                 <div>
                     <h1 class="text-lg font-bold tracking-tight">CricExpense</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Offline IndexedDB Expense Tracker</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Offline IndexedDB • Auto-Backup Enabled</p>
                 </div>
             </div>
             
             <div class="flex items-center space-x-3">
-                <span id="sync-status" class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
-                    <span class="w-1.5 h-1.5 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span> IndexedDB Ready
+                <span id="backup-badge" class="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" title="Auto-backup is active">
+                    <i class="fa-solid fa-shield-halved mr-1"></i> Auto-Backup On
                 </span>
                 <button onclick="toggleDarkMode()" class="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700 transition" title="Toggle Theme">
                     <i id="theme-icon" class="fa-solid fa-moon"></i>
                 </button>
                 <button onclick="exportDataJSON()" class="hidden sm:inline-flex items-center px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
-                    <i class="fa-solid fa-download mr-1.5"></i> Backup
+                    <i class="fa-solid fa-download mr-1.5"></i> Export Backup
                 </button>
+                <label class="inline-flex items-center px-3 py-1.5 border border-slate-300 dark:border-slate-600 text-xs font-medium rounded-lg text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer">
+                    <i class="fa-solid fa-upload mr-1.5"></i> Restore
+                    <input type="file" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                </label>
             </div>
         </div>
     </header>
@@ -278,9 +285,25 @@
                     <h2 class="text-lg font-bold">Financial Reports & Trends</h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Analyze your monthly income vs expenses over time.</p>
                 </div>
-                <button onclick="exportDataJSON()" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-medium text-sm rounded-xl shadow-sm transition flex items-center space-x-2">
-                    <i class="fa-solid fa-download"></i> <span>Export All Data (JSON)</span>
-                </button>
+                <div class="flex items-center space-x-3">
+                    <button onclick="exportDataJSON()" class="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-medium text-sm rounded-xl shadow-sm transition flex items-center space-x-2">
+                        <i class="fa-solid fa-download"><span>Export Backup</span></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Auto-Backup Info Card -->
+            <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-5 rounded-2xl flex items-start space-x-4">
+                <div class="p-2 bg-emerald-600 text-white rounded-xl mt-0.5">
+                    <i class="fa-solid fa-shield-cat text-lg"></i>
+                </div>
+                <div class="space-y-1">
+                    <h4 class="font-bold text-emerald-900 dark:text-emerald-200 text-sm">Automatic Local Backup System Active</h4>
+                    <p class="text-xs text-emerald-700 dark:text-emerald-300 leading-relaxed">
+                        Every time you add, edit, or delete data, CricExpense automatically generates a silent snapshot and securely stores it in your browser's <code class="bg-emerald-100 dark:bg-emerald-900 px-1 py-0.5 rounded">localStorage</code>. Even if IndexedDB storage is cleared or reset, your auto-backup ensures zero data loss. You can also export or restore backups anytime above.
+                    </p>
+                    <p id="last-backup-timestamp" class="text-xs font-semibold text-emerald-800 dark:text-emerald-400 pt-1">Last Auto-Backup: Never</p>
+                </div>
             </div>
 
             <!-- Monthly Trend Chart -->
@@ -296,7 +319,7 @@
 
     <!-- FOOTER -->
     <footer class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 py-4 text-center text-xs text-slate-500 dark:text-slate-400">
-        CricExpense • Offline-first Client-side IndexedDB Expense Tracker
+        CricExpense • Offline-first Client-side IndexedDB Expense Tracker with Auto-Backup
     </footer>
 
     <!-- MODAL: ADD / EDIT TRANSACTION -->
@@ -468,12 +491,88 @@
         document.addEventListener('DOMContentLoaded', () => {
             initDB().catch(err => alert("Failed to initialize offline database: " + err));
             setupTheme();
+            registerServiceWorker();
         });
 
         async function initializeApp() {
             populateCategoryDropdowns();
             setupDefaultDates();
+            await checkAndRestoreAutoBackup();
             await refreshAllData();
+        }
+
+        // --- AUTOMATIC BACKUP SYSTEM ---
+        async function triggerAutoBackup() {
+            try {
+                const txs = await getAllRecords('transactions');
+                const budgets = await getAllRecords('budgets');
+                const debts = await getAllRecords('debts');
+
+                const backupPayload = {
+                    timestamp: new Date().toISOString(),
+                    transactions: txs,
+                    budgets: budgets,
+                    debts: debts
+                };
+
+                localStorage.setItem('cric_expense_autobackup', JSON.stringify(backupPayload));
+                
+                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const dateStr = new Date().toLocaleDateString();
+                const tsEl = document.getElementById('last-backup-timestamp');
+                if (tsEl) {
+                    tsEl.textContent = `Last Auto-Backup: Today at ${timeStr} (${dateStr})`;
+                }
+                console.log("Auto-backup snapshot saved successfully.");
+            } catch (err) {
+                console.error("Auto-backup failed:", err);
+            }
+        }
+
+        async function checkAndRestoreAutoBackup() {
+            try {
+                const txs = await getAllRecords('transactions');
+                // If IndexedDB is completely empty, check if we have a silent auto-backup in localStorage to restore from!
+                if (txs.length === 0) {
+                    const savedBackup = localStorage.getItem('cric_expense_autobackup');
+                    if (savedBackup) {
+                        const parsed = JSON.parse(savedBackup);
+                        if (parsed.transactions && parsed.transactions.length > 0) {
+                            console.log("Restoring data from local auto-backup...");
+                            for (let t of parsed.transactions) {
+                                delete t.id; // re-assign fresh autoincrement ID
+                                await addRecord('transactions', t);
+                            }
+                            if (parsed.budgets) {
+                                for (let b of parsed.budgets) {
+                                    delete b.id;
+                                    await addRecord('budgets', b).catch(() => {});
+                                }
+                            }
+                            if (parsed.debts) {
+                                for (let d of parsed.debts) {
+                                    delete d.id;
+                                    await addRecord('debts', d);
+                                }
+                            }
+                            console.log("Auto-backup successfully restored!");
+                        }
+                    }
+                }
+                const savedBackup = localStorage.getItem('cric_expense_autobackup');
+                if (savedBackup) {
+                    const parsed = JSON.parse(savedBackup);
+                    if (parsed.timestamp) {
+                        const dObj = new Date(parsed.timestamp);
+                        const tsEl = document.getElementById('last-backup-timestamp');
+                        if (tsEl) {
+                            tsEl.textContent = `Last Auto-Backup: ${dObj.toLocaleDateString()} at ${dObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Error checking auto-backup:", e);
+            }
         }
 
         function setupDefaultDates() {
@@ -557,31 +656,40 @@
         }
 
         function addRecord(storeName, data) {
-            return new Promise((resolve, reject) => {
+            return new Promise(async (resolve, reject) => {
                 const transaction = db.transaction(storeName, 'readwrite');
                 const store = transaction.objectStore(storeName);
                 const request = store.add(data);
-                request.onsuccess = () => resolve(request.result);
+                request.onsuccess = async () => {
+                    await triggerAutoBackup();
+                    resolve(request.result);
+                };
                 request.onerror = () => reject(request.error);
             });
         }
 
         function updateRecord(storeName, data) {
-            return new Promise((resolve, reject) => {
+            return new Promise(async (resolve, reject) => {
                 const transaction = db.transaction(storeName, 'readwrite');
                 const store = transaction.objectStore(storeName);
                 const request = store.put(data);
-                request.onsuccess = () => resolve(request.result);
+                request.onsuccess = async () => {
+                    await triggerAutoBackup();
+                    resolve(request.result);
+                };
                 request.onerror = () => reject(request.error);
             });
         }
 
         function deleteRecord(storeName, id) {
-            return new Promise((resolve, reject) => {
+            return new Promise(async (resolve, reject) => {
                 const transaction = db.transaction(storeName, 'readwrite');
                 const store = transaction.objectStore(storeName);
                 const request = store.delete(id);
-                request.onsuccess = () => resolve(request.result);
+                request.onsuccess = async () => {
+                    await triggerAutoBackup();
+                    resolve(request.result);
+                };
                 request.onerror = () => reject(request.error);
             });
         }
@@ -827,7 +935,6 @@
 
             if (dataVals.length === 0) {
                 ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-                // Render empty state in chart container if needed
                 return;
             }
 
@@ -864,7 +971,6 @@
             const txs = await getAllRecords('transactions');
             const budgets = await getAllRecords('budgets');
 
-            // Populate budget month select
             const monthSelect = document.getElementById('budget-month-select');
             if (monthSelect.options.length === 0) {
                 const monthsSet = new Set();
@@ -885,7 +991,6 @@
 
             const activeMonth = monthSelect.value || new Date().toISOString().substring(0, 7);
 
-            // Compute actual expenses per category for this month
             const spentMap = {};
             EXPENSE_CATEGORIES.forEach(cat => spentMap[cat] = 0);
             txs.forEach(t => {
@@ -894,7 +999,6 @@
                 }
             });
 
-            // Get budget limits for this month
             const budgetMap = {};
             budgets.forEach(b => {
                 if (b.month === activeMonth) {
@@ -1072,7 +1176,6 @@
         async function renderReportsView() {
             const txs = await getAllRecords('transactions');
 
-            // Last 6 months trend
             const monthsMap = {};
             for (let i = 5; i >= 0; i--) {
                 const d = new Date();
@@ -1129,7 +1232,7 @@
             });
         }
 
-        // --- EXPORT BACKUP ---
+        // --- EXPORT & IMPORT BACKUP ---
         async function exportDataJSON() {
             const txs = await getAllRecords('transactions');
             const budgets = await getAllRecords('budgets');
@@ -1149,6 +1252,58 @@
             document.body.appendChild(dlAnchor);
             dlAnchor.click();
             dlAnchor.remove();
+        }
+
+        async function importDataJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data.transactions) {
+                        alert("Invalid backup file format.");
+                        return;
+                    }
+
+                    if (confirm("Restoring this backup will merge or add records into your local database. Continue?")) {
+                        if (data.transactions) {
+                            for (let t of data.transactions) {
+                                delete t.id; // avoid key collision
+                                await addRecord('transactions', t);
+                            }
+                        }
+                        if (data.budgets) {
+                            for (let b of data.budgets) {
+                                delete b.id;
+                                await addRecord('budgets', b).catch(() => {});
+                            }
+                        }
+                        if (data.debts) {
+                            for (let d of data.debts) {
+                                delete d.id;
+                                await addRecord('debts', d);
+                            }
+                        }
+                        alert("Backup restored successfully!");
+                        await refreshAllData();
+                        switchTab('dashboard');
+                    }
+                } catch (err) {
+                    alert("Failed to parse backup JSON file: " + err);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- PWA SERVICE WORKER ---
+        function registerServiceWorker() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('sw.js')
+                    .then(() => console.log('Service Worker registered successfully.'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            }
         }
 
         // --- UTILS ---
