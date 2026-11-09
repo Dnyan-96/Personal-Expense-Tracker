@@ -532,7 +532,6 @@
         async function checkAndRestoreAutoBackup() {
             try {
                 const txs = await getAllRecords('transactions');
-                // If IndexedDB is completely empty, check if we have a silent auto-backup in localStorage to restore from!
                 if (txs.length === 0) {
                     const savedBackup = localStorage.getItem('cric_expense_autobackup');
                     if (savedBackup) {
@@ -540,7 +539,7 @@
                         if (parsed.transactions && parsed.transactions.length > 0) {
                             console.log("Restoring data from local auto-backup...");
                             for (let t of parsed.transactions) {
-                                delete t.id; // re-assign fresh autoincrement ID
+                                delete t.id;
                                 await addRecord('transactions', t);
                             }
                             if (parsed.budgets) {
@@ -597,7 +596,6 @@
                 catSelect.appendChild(opt);
             });
 
-            // Filter dropdown
             const filterCat = document.getElementById('tx-filter-category');
             filterCat.innerHTML = '<option value="all">All Categories</option>';
             [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES].forEach(cat => {
@@ -607,7 +605,6 @@
                 filterCat.appendChild(opt);
             });
 
-            // Budget Modal Category dropdown
             const budgetCat = document.getElementById('budget-modal-category');
             budgetCat.innerHTML = '';
             EXPENSE_CATEGORIES.forEach(cat => {
@@ -622,7 +619,6 @@
             populateCategoryDropdowns();
         }
 
-        // Tab Switching
         function switchTab(tabId) {
             document.querySelectorAll('main > section').forEach(sec => sec.classList.add('hidden'));
             document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -644,7 +640,6 @@
             if (tabId === 'reports') renderReportsView();
         }
 
-        // Generic IndexedDB Helper Functions
         function getAllRecords(storeName) {
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction(storeName, 'readonly');
@@ -698,7 +693,6 @@
             await renderDashboard();
         }
 
-        // --- TRANSACTIONS LOGIC ---
         function openTransactionModal(type = 'expense', tx = null) {
             document.getElementById('form-transaction').reset();
             document.getElementById('tx-id').value = '';
@@ -757,7 +751,6 @@
         async function renderTransactionsTable() {
             const txs = await getAllRecords('transactions');
             txs.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
             window.allTransactionsCache = txs;
             displayFilteredTransactions(txs);
         }
@@ -811,7 +804,6 @@
             openTransactionModal(tx.type, tx);
         }
 
-        // --- DASHBOARD RENDER ---
         async function renderDashboard() {
             const txs = await getAllRecords('transactions');
             const debts = await getAllRecords('debts');
@@ -822,7 +814,6 @@
             const now = new Date();
             const currentYearMonth = now.toISOString().substring(0, 7);
 
-            // Populate Month selector for dashboard chart if empty
             const chartMonthSelect = document.getElementById('dash-chart-month');
             if (chartMonthSelect.options.length === 0) {
                 const monthsSet = new Set();
@@ -839,14 +830,12 @@
                 });
             }
 
-            // Calculate overall net balance
             let netBalance = 0;
             txs.forEach(t => {
                 if (t.type === 'income') netBalance += t.amount;
                 else netBalance -= t.amount;
             });
 
-            // Calculate current month income & expense
             let monthIncome = 0;
             let monthExpense = 0;
             txs.forEach(t => {
@@ -856,7 +845,6 @@
                 }
             });
 
-            // Calculate active debts net balance
             let activeDebtsNet = 0;
             debts.forEach(d => {
                 if (d.status === 'pending') {
@@ -871,7 +859,6 @@
             document.getElementById('dash-debts').textContent = `${activeDebtsNet >= 0 ? '+' : ''}₹${activeDebtsNet.toFixed(2)}`;
             document.getElementById('dash-month-label').textContent = formatYearMonth(currentYearMonth);
 
-            // Recent activity
             const recentList = document.getElementById('dash-recent-list');
             recentList.innerHTML = '';
             const sortedTxs = [...txs].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
@@ -966,7 +953,6 @@
             });
         }
 
-        // --- MONTHLY BUDGET LOGIC ---
         async function renderBudgetView() {
             const txs = await getAllRecords('transactions');
             const budgets = await getAllRecords('budgets');
@@ -1074,7 +1060,6 @@
             renderBudgetView();
         }
 
-        // --- BORROWED & LENT LOGIC ---
         function openBorrowModal(record = null) {
             document.getElementById('form-borrow').reset();
             document.getElementById('borrow-id').value = '';
@@ -1172,7 +1157,6 @@
             });
         }
 
-        // --- REPORTS & CHARTS ---
         async function renderReportsView() {
             const txs = await getAllRecords('transactions');
 
@@ -1232,7 +1216,6 @@
             });
         }
 
-        // --- EXPORT & IMPORT BACKUP ---
         async function exportDataJSON() {
             const txs = await getAllRecords('transactions');
             const budgets = await getAllRecords('budgets');
@@ -1270,7 +1253,7 @@
                     if (confirm("Restoring this backup will merge or add records into your local database. Continue?")) {
                         if (data.transactions) {
                             for (let t of data.transactions) {
-                                delete t.id; // avoid key collision
+                                delete t.id;
                                 await addRecord('transactions', t);
                             }
                         }
@@ -1297,7 +1280,6 @@
             reader.readAsText(file);
         }
 
-        // --- PWA SERVICE WORKER ---
         function registerServiceWorker() {
             if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.register('sw.js')
@@ -1306,7 +1288,6 @@
             }
         }
 
-        // --- UTILS ---
         function closeModal(modalId) {
             document.getElementById(modalId).classList.add('hidden');
         }

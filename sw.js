@@ -1,6 +1,6 @@
 self.addEventListener('install', (e) => {
     e.waitUntil(
-        caches.open('cric-expense-v2').then((cache) => {
+        caches.open('cric-expense-v3').then((cache) => {
             return cache.addAll([
                 './index.html',
                 './manifest.json'
