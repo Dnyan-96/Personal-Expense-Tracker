@@ -1,3 +1,3 @@
-# CricExpense - Personal Expense Tracker (PWA Ready)
+# Kharcha Book - Track. Save. Grow.
 
-A modern, offline-first personal expense tracker with IndexedDB storage, automated local backups, and instant PWA Chrome installation.
+A modern, 100% offline-first personal expense tracker with IndexedDB storage, automated local backup, and PWA installation support.

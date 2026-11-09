@@ -1,6 +1,7 @@
 {
-  "name": "CricExpense",
-  "short_name": "CricExpense",
+  "name": "Kharcha Book",
+  "short_name": "Kharcha",
+  "description": "Track. Save. Grow.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f172a",
